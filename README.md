@@ -1,7 +1,11 @@
-[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/U6U82G0A5)
-
 # windows-desktop-switcher
 An AutoHotkey script for Windows that lets a user switch virtual desktops by pressing <kbd>CapsLock</kbd> and a number row key at the sime time (e.g. <kbd>CapsLock</kbd> + <kbd>2</kbd> to switch to Desktop 2). It also provides other features, such as customizing the key combinations, creation/deletion of desktops by hotkey, etc. (see Hotkeys section below).
+
+A port to AutoHotKey v2. `IsWindowOnDesktopNumberProc` is currently broken. You can avoid it by commenting out (at the cost of losing centering the mouse on the top-most window when switching desktops):
+```
+   ; Sleep(50)
+   ; focusTheForemostWindow(targetDesktop)
+```
 
 ## Hotkeys
 
