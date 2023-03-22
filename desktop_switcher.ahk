@@ -8,11 +8,36 @@ DesktopCount     := 2     ; Windows starts with 2 desktops at boot
 CurrentDesktop   := 1     ; Desktop count is 1-indexed (Microsoft numbers them this way)
 LastOpenedDesktop := 1
 
+osMajorVer := SubStr(A_OSVersion, 1, 5)
+osMinorVer := SubStr(A_OSVersion, 6)
+; OS should be Windows 10 (really old versions of 10 might not work. Could include a minimum version check if there's a known cutoff.
+if (osMajorVer = "10.0." and osMinorVer < 19099) {
+   global os_Ver := 10
+; OS should be Windows 11 (if new versions break this script including a maximum version may be beneficial)
+} else if (osMajorVer = "10.0." and osMinorVer >= 22000) {
+   global os_Ver := 11
+; Exit with warning for unsupported versions of Windows
+} else {
+   ; Virtual desktops aren't even in pre-Windows 10, you shouldn't be using this
+   if(inStr(osMajorVer, "WIN", false) > 0) {
+      MsgBox("Detected an old version of windows. This script only supports Windows 10/11. Upgrade needed.")
+   ; Presumably a new version of Windows, and would need a dll update to work
+   } else {
+      MsgBox("This script only supports Windows 10/11. You are using an unknown version of windows (" A_OSVersion "). This script probably needs updating to support your system.")
+   }
+   ExitApp
+}
+
 ; DLL
-DLLDir                               := A_ScriptDir . "\VirtualDesktopAccessor.dll"
+if (os_Ver = 10) {
+   DLLDir                            := A_ScriptDir . "\windows 10\VirtualDesktopAccessor.dll"
+} else {
+   DLLDir                            := A_ScriptDir . "\windows 11\VirtualDesktopAccessor.dll"
+}
 hVirtualDesktopAccessor              := DllCall("LoadLibrary", "Str", DLLDir, "Ptr")
 global IsWindowOnDesktopNumberProc   := DllCall("GetProcAddress", "Ptr", hVirtualDesktopAccessor, "AStr", "IsWindowOnDesktopNumber", "Ptr")
 global MoveWindowToDesktopNumberProc := DllCall("GetProcAddress", "Ptr", hVirtualDesktopAccessor, "AStr", "MoveWindowToDesktopNumber", "Ptr")
+global GoToDesktopNumberProc         := DllCall("GetProcAddress", "Ptr", hVirtualDesktopAccessor, "AStr", "GoToDesktopNumber", "Ptr")
 
 ; Main
 SetKeyDelay(75)
@@ -41,7 +66,7 @@ mapDesktopsFromRegistry()
       catch OSError, ValueError as e
          CurrentDesktopId := RegRead("HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\SessionInfo\" SessionId "\VirtualDesktops", "CurrentVirtualDesktop")
          ; MsgBox e.Message . '\n' . e.Extra
-     
+
       if (CurrentDesktopId) {
          IdLength := StrLen(CurrentDesktopId)
       }
@@ -116,25 +141,13 @@ _switchDesktopToTarget(targetDesktop)
    ; Fixes the issue of active windows in intermediate desktops capturing the switch shortcut and therefore delaying or stopping the switching sequence. This also fixes the flashing window button after switching in the taskbar. More info: https://github.com/pmb6tz/windows-desktop-switcher/pull/19
    WinActivate("ahk_class Shell_TrayWnd")
 
-   ; Go right until we reach the desktop we want
-   while(CurrentDesktop < targetDesktop) {
-      Send("{LWin down}{LCtrl down}{Right down}{LWin up}{LCtrl up}{Right up}")
-      CurrentDesktop++
-      OutputDebug("[right] target: " targetDesktop " current: " CurrentDesktop)
-   OutputDebug("[delete] desktops: " DesktopCount " current: " CurrentDesktop)
-   }
 
-   ; Go left until we reach the desktop we want
-   while(CurrentDesktop > targetDesktop) {
-      Send("{LWin down}{LCtrl down}{Left down}{Lwin up}{LCtrl up}{Left up}")
-      CurrentDesktop--
-      OutputDebug("[left] target: " targetDesktop " current: " CurrentDesktop)
-   }
+   DllCall(GoToDesktopNumberProc, "Int", targetDesktop-1)
 
    ; Upgrade to AutoHotKey v2 broke this - MoveWindowToDesktopNumberProc currently crashes
    ; Makes the WinActivate fix less intrusive
-   Sleep(50)
-   focusTheForemostWindow(targetDesktop)
+   ;Sleep(50)
+   ;focusTheForemostWindow(targetDesktop)
 }
 
 updateGlobalVariables()
